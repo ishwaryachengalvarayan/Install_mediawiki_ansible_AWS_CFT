@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Resources:
+  ELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Allow http to client host
+        GroupName: ELBSecurityGroup
+        VpcId: 
+          Ref: MyVPCId
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Allow http to client host
+        GroupName: AppInstanceSecurityGroup
+        VpcId: 
+          Ref: MyVPCId
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+    DependsOn:
+    - ELBSecurityGroup
+
+  ELB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      ConnectionDrainingPolicy:
+        Enabled: true
+        Timeout: 30
+      CrossZone: true
+      IpAddressType: ipv4
+      Name:
+        Ref: InternalELBName
+      Scheme: internet-facing
+      SecurityGroups: [
+        Ref: ELBSecurityGroup ]
+      Subnets:
+        Ref: Subnets
+      Type: application
+
+  ELBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: "/"
+      HealthCheckPort: '80'
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 5
+      Matcher:
+        HttpCode: '200'
+      Name: APP
+      Port: 80
+      Protocol: HTTP
+      TargetGroupAttributes:
+      - Key: deregistration_delay.timeout_seconds
+        Value: '20'
+      UnhealthyThresholdCount: 2
+      VpcId:
+        Ref: MyVPCId
+    DependsOn:
+    - ELB
+
+  ELBDefaultListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn:
+        Ref: ELB
+      DefaultActions:
+      - Type: forward
+        TargetGroupArn:
+          Ref: ELBTargetGroup
+      Port: 80
+      Protocol: HTTP
+    DependsOn:
+    - ELB
+    - ELBTargetGroup
+
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MaxSize:
+        Ref: ASGMaxSize
+      MinSize:
+        Ref: ASGMinSize
+      DesiredCapacity:
+        Ref: ASGSize
+      HealthCheckType: ELB
+      HealthCheckGracePeriod: '900'
+      LaunchConfigurationName:
+        Ref: LaunchConfiguration
+      VPCZoneIdentifier:
+        Ref: Subnets
+      TargetGroupARNs: [
+        Ref: ELBTargetGroup ] 
+      TerminationPolicies:
+      - Default
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT10M
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MaxBatchSize: '1'
+        MinInstancesInService: '1'
+        PauseTime: PT10M
+        SuspendProcesses:
+        - AlarmNotification
+        WaitOnResourceSignals: true
+    DependsOn:
+    - LaunchConfiguration
+  
+  LaunchConfiguration:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      AssociatePublicIpAddress: true
+      BlockDeviceMappings:
+      - DeviceName: "/dev/xvda"
+        Ebs:
+          DeleteOnTermination: true
+          VolumeSize: 8
+          VolumeType: gp2
+      EbsOptimized: false
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - Ref: AWS::Region
+        - AMI
+      InstanceMonitoring: true
+      InstanceType:
+        Ref: InstanceType
+      KeyName:
+        Ref: KeyName
+      SecurityGroups: [
+        Ref: InstanceSecurityGroup ]
+      UserData:
+        Fn::Base64:
+          Fn::Join:
+          - ''
+          - - "#!/bin/bash -ex"
+            - "\n"
+            - yum -y install httpd
+            - "\n"
+            - chkconfig httpd on
+            - "\n"
+            - 'echo "Hello World welcome to App deployed using Rolling update. Version- '
+            - Ref: VersionParameter
+            - "\" >> /var/www/html/index.html"
+            - "\n"
+            - service httpd start
+            - "\n"
+            - "/opt/aws/bin/cfn-signal -e 0 --region "
+            - Ref: AWS::Region
+            - " --stack "
+            - Ref: AWS::StackName
+            - " --resource AutoScalingGroup"
+            - "\n"
+    DependsOn:
+    - InstanceSecurityGroup
+
+Parameters:
+  MyVPCId:
+    Description: VPC Id
+    Type: AWS::EC2::VPC::Id
+  Subnets:
+    Description: List of subnets
+    Type: List<AWS::EC2::Subnet::Id>
+  InternalELBName:
+    Description: Internal ELB Name Assigned
+    Type: String
+    Default: my-internal-elb
+  ASGSize:
+    Description: Desired number of EC2 instances in Auto Scaling Group
+    Type: Number
+    Default: 2
+  ASGMinSize:
+    Description: Min number of EC2 instances in Auto Scaling Group
+    Type: Number
+    Default: 1
+  ASGMaxSize:
+    Description: Max number of EC2 instances in Auto Scaling Group
+    Type: Number
+    Default: 4
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - t1.micro
+    - t2.micro
+  KeyName:
+    Description: EC2 key pair
+    Type: String
+    Default: my_ec2_key
+  VersionParameter:
+    Description: Software version to deploy
+    Type: String
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: ami-098f16afa9edf40be
+
+Outputs:
+  ELB:
+    Value:
+      Fn::Join:
+      - ''
+      - - http://
+        - Fn::GetAtt:
+          - ELB
+          - DNSName
+    Description: Load Balancer URL
