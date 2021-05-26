@@ -1,0 +1,10 @@
+Sample of /etc/ansible/hosts file
+[webservers]
+foo.example.com
+bar.example.com
+
+[dbservers]
+one.example.com
+two.example.com
+
+NOTE: Replace the 'hosts' in playbook_mediawiki.yaml file with the server group name '[]' from the hosts file and execute. 
