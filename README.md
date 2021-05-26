@@ -36,7 +36,7 @@ EOF
 
   1. Deploy the stack using AWS cli
 
-  aws cloudformation create-stack --stack-name new-stack --template-body file://~/resources/rollingupdate.yaml --parameters file://~/resources/parameters.json
+  aws cloudformation create-stack --stack-name new-stack --template-body file:///resources/rollingupdate.yaml  --parameters  file:///resources/parameters.json
   
   2. Watch for status until the status is CREATE_COMPLETE
   
@@ -48,5 +48,5 @@ EOF
 
   3. Installation using ansible
 
-  ansible-playbook playbook.yaml -i inventory.txt
+  ansible-playbook playbook_mediawiki.yaml -i inventory.txt
     
