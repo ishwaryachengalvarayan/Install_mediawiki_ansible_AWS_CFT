@@ -1,5 +1,9 @@
 # Description
-This repository will help you create AWS resources using Cloud formation template. This CFT supports rolling update. 
+This repository will help you create AWS resources using Cloud formation template. This CFT supports rolling update.
+
+Also, installation of opensource software Mediawiki using deployment tool - Ansible. 
+
+What is mediawiki. REF: https://www.mediawiki.org/wiki/MediaWiki
 
 # Pre-requisites
 1. Install AWS CLI
