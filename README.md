@@ -48,5 +48,5 @@ EOF
 
   3. Installation using ansible
 
-  ansible-playbook playbook_mediawiki.yaml -i inventory.txt
+  ansible-playbook playbook_mediawiki.yaml
     
