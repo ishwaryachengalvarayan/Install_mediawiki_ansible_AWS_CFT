@@ -44,7 +44,7 @@ EOF
 
   2. Host details 
   
-  Add the list of Servers for which Mediawiki installation is required to inventory.txt
+  Add the list of Servers for which Mediawiki installation is required to /etc/ansible/hosts
 
   3. Installation using ansible
 
