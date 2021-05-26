@@ -36,7 +36,7 @@ EOF
 
   1. Deploy the stack using AWS cli
 
-  aws cloudformation create-stack --stack-name new-stack --template-body file:///resources/rollingupdate.yaml  --parameters  file:///resources/parameters.json
+  aws cloudformation create-stack --stack-name new-stack --template-body file:///resources/RollingUpdate.yaml.yaml  --parameters  file:///resources/parameters.json
   
   2. Watch for status until the status is CREATE_COMPLETE
   
@@ -44,7 +44,7 @@ EOF
 
   2. Host details 
   
-  Add the list of Servers for which Mediawiki installation is required to /etc/ansible/hosts
+  Add the list of Servers for which Mediawiki installation is required to /etc/ansible/hosts. Refer host file for more information. 
 
   3. Installation using ansible
 
